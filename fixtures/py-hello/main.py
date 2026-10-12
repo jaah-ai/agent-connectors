@@ -10,6 +10,16 @@ ctx = agent.task()
 task = ctx["task"]
 agent.log("starting", task_id=task["id"], persona=task["persona"])
 
+
+def finish(summary, evidence):
+    # Upload a report on EVERY path, the decline included: some kinds of task refuse a settle without one.
+    report = os.path.join(os.environ["JAAH_REPORT_DIR"], "report.html")
+    with open(report, "w", encoding="utf-8") as fh:
+        fh.write(f"<!doctype html><title>Hello</title><p>{html.escape(task['title'])}: {html.escape(summary)}</p>")
+    agent.artifact("report", report)
+    agent.settle(summary, "no_pr", no_pr_reason="no_code_needed", no_pr_evidence=evidence)
+
+
 for entry in agent.credentials():            # probe: these values must reach the transcript as <redacted:…>
     if entry["name"].startswith("k10-planted"):
         config = agent.credential(entry["name"]).get("config") or {}
@@ -24,17 +34,9 @@ if not task["autonomous"]:                    # Full Auto: decide yourself, neve
     agent.log("answer received", status=answers[0]["status"], selections=answers[0]["selections"],
               text=answers[0].get("text"))
     if answers[0]["status"] == "dismissed" or answers[0]["selections"] != ["Yes"]:
-        agent.settle("The operator declined the hello.", "no_pr",
-                     no_pr_reason="no_code_needed", no_pr_evidence="Operator answered No / dismissed.")
+        finish("The operator declined the hello.", "Operator answered No / dismissed.")
         raise SystemExit(0)
 
 agent.notify(f"Hello from {ctx['agent']['display_name']}!")
 agent.report_usage("my-model-1", input_tokens=120, output_tokens=40)
-
-report = os.path.join(os.environ["JAAH_REPORT_DIR"], "report.html")
-with open(report, "w", encoding="utf-8") as fh:
-    fh.write(f"<!doctype html><title>Hello</title><p>Hello, {html.escape(task['title'])}.</p>")
-agent.artifact("report", report)
-
-agent.settle("Said hello and uploaded a report.", "no_pr",
-             no_pr_reason="no_code_needed", no_pr_evidence="Hello agent: no code change requested.")
+finish("Said hello.", "Hello agent: no code change requested.")
