@@ -1,0 +1,14 @@
+# TEST FIXTURE — the SDK README's Python hello agent plus two acceptance probes (Jaah Task 5909, AC-4/5/6):
+# it logs the exact answer it was given, and logs every secret of a credential named `k10-planted-*` so the
+# session transcript proves masking. Never a catalog connector.
+[agent]
+name         = "py-hello"
+display_name = "Py hello (fixture)"
+description  = "Test fixture: the SDK README's Python hello agent, plus an answer echo and a planted-secret log line that must arrive redacted."
+type         = "non_coding"
+language     = "python"
+entrypoint   = "main.py"
+version      = "0.1.0"
+maintainer   = "@ruzhukov"
+personas     = ["coder", "researcher"]
+sdk          = ">=0.1,<0.2"
