@@ -63,21 +63,31 @@ how to check it; none needs the contributor to be asked. The behaviour each item
 - [ ] **T7 README.** Has the header table (Type, Personas, Language, Needs on the node, Needs on the
       credential roster, Talks to, Maintainer) and the step-by-step behaviour, Full Auto and security-gate
       sections. [§6]
+- [ ] **T8 Scope.** The PR changes only `connectors/<name>/`: `git diff --name-only origin/develop...HEAD`
+      lists nothing under `.github/`, `tools/`, `fixtures/` or another connector. Changes there are their
+      own PR, reviewed as repo changes. [§8]
+- [ ] **T9 Dependencies audited.** With dependencies: `pip-audit -r requirements.txt` or
+      `npm audit --omit=dev` reports no known vulnerability. [§2]
 
 ### Security
 
 - [ ] **S1 Credentials.** Secrets come only from `credential(name)`: every hit of
       `grep -rnE "environ|getenv|open\(" --exclude-dir=tests connectors/<name>` reads something that is not a
       secret. [§5.5]
-- [ ] **S2 No secret written.** A test asserts the credential value never reaches a daemon call, the events
-      file, an artifact or a commit; secrets reach child processes only through `env=`, never argv. [§5.5]
+- [ ] **S2 No secret written.** Tests assert the credential value — and any fragment a tool it drives
+      echoes, such as `sk-ab**wxyz` — never reaches a daemon call, the events file, an artifact, a commit or a
+      PR title/body, including when the driven tool repeats it; secrets reach child processes only through
+      `env=`, never argv. [§5.5]
 - [ ] **S3 Security gate.** For `coding`/`cli_wrapper`: tests show (a) attended + security-surface diff →
       one `Security` round, merge only on approve, auto-merge never armed; (b) Full Auto → draft PR and
-      `fail` whose reason starts with the surface and carries the PR URL. [§5.4]
+      `fail` whose reason starts with the surface and carries the PR URL. Surface detection covers the whole
+      branch against its base (both sides of a rename, commits from earlier attempts) and CI/ownership files,
+      each shown by a test. [§5.4]
 - [ ] **S4 Full Auto asks no decision.** A test with `autonomous: true` shows no `ask` except with a
       `Credential` / `Access` / `Human act` / `External` header. [§5.3]
-- [ ] **S5 Untrusted code cannot reach the socket.** If the connector runs model-chosen commands, the
-      child's env drops `JAAH_AGENT_SOCKET` and `JAAH_AGENT_EVENTS`, asserted by a test. [§5.7]
+- [ ] **S5 Untrusted code cannot reach the socket.** Every child that can execute model-written content —
+      the model's own shell, the gate, git (hooks off) — runs without `JAAH_AGENT_SOCKET` and
+      `JAAH_AGENT_EVENTS`, asserted by a test. [§5.7]
 - [ ] **S6 Network reach.** Every host the code contacts is in the README's "Talks to"; nothing else. [§5.8]
 - [ ] **S7 Writes.** Files are written only in the worktree, `$JAAH_REPORT_DIR` and temp dirs the connector
       creates. [§2]
@@ -87,13 +97,17 @@ how to check it; none needs the contributor to be asked. The behaviour each item
 - [ ] **Q1 CI green**: manifest check, the connector's tests, and the **80% line-coverage floor**. [§7]
 - [ ] **Q2 Test paths**: happy path, nothing-to-do, a question round, a failure, Full Auto — each a named
       test. [§7]
-- [ ] **Q3 Live run on Jaah dev**: the reviewer registers the PR's head commit as an org agent on Jaah dev
+- [ ] **Q3 Live run on Jaah dev** — only once every T and S item passes, in a throwaway org whose roster
+      holds only the credentials this connector needs: the reviewer registers the PR's head commit as an org agent on Jaah dev
       (sub-path `connectors/<name>`) and runs one task end to end; the PR comment records the task URL,
       that the session shows the agent's logs and usage, and the outcome (merged PR / report / named
       failure). A connector that needs a credential the reviewer cannot obtain records **"Q3 deferred:
       <what is missing>"** and stays unpublished until Q3 is done.
 
-A PR merges only with every item ticked (Q3 may be deferred as above). **Security findings block**: an S
+**Repo changes** (`.github/`, `tools/`, `fixtures/`, these documents) are reviewed and merged by a Jaah
+maintainer under the same branch/commit/PR rules; they never ride a connector PR.
+
+A connector PR merges only with every item ticked (Q3 may be deferred as above). **Security findings block**: an S
 item that fails is fixed in the PR or the PR is declined.
 
 ## 4. Merging and publishing

@@ -38,10 +38,15 @@ with open(state, "a") as fh:
                          "home": os.environ.get("CODEX_HOME"),
                          "socket_leaked": "JAAH_AGENT_SOCKET" in os.environ}) + "\n")
 cwd = args[args.index("--cd") + 1]
+for path in p.get("delete") or []:
+    os.remove(os.path.join(cwd, path))
+for src, dst in (p.get("rename") or {}).items():
+    os.makedirs(os.path.dirname(os.path.join(cwd, dst)) or ".", exist_ok=True)
+    os.rename(os.path.join(cwd, src), os.path.join(cwd, dst))
 for path, body in (p.get("files") or {}).items():
     full = os.path.join(cwd, path)
     os.makedirs(os.path.dirname(full), exist_ok=True)
-    open(full, "w").write(body)
+    open(full, "w").write(body.replace("{KEY}", key))
 print(json.dumps({"type": "thread.started", "thread_id": "t1"}))
 if p.get("leak"):
     sys.stderr.write(f"ERROR Incorrect API key provided: {key[:8]}**{key[-4:]}. key={key}\n")
@@ -65,6 +70,12 @@ if args[:2] == ["pr", "create"]:
 with open(log, "a") as fh:
     fh.write(json.dumps(entry) + "\n")
 verb = args[:2]
+if verb == ["pr", "view"] and not args[2].isdigit() and not state.get("created"):
+    sys.stderr.write("jaah-forge: no PR for that branch\n")
+    sys.exit(3)
+if verb == ["pr", "auto-merge"] and state.get("fail_arm"):
+    sys.stderr.write("jaah-forge: auto-merge is not enabled for this repository\n")
+    sys.exit(3)
 if verb == ["pr", "create"] and state.get("fail_create"):
     sys.stderr.write("jaah-forge: forge error 502\n")
     sys.exit(3)
@@ -72,6 +83,7 @@ pr = {"number": 7, "url": os.environ["FAKE_PR_URL"], "head": "x", "base": "main"
       "draft": state.get("draft", False), "auto_merge": state.get("armed", False)}
 if verb == ["pr", "create"]:
     state["draft"] = "--draft" in args
+    state["created"] = True
     pr.update(draft=state["draft"], state="open", merge_state="pending", checks="pending")
 elif verb == ["pr", "auto-merge"]:
     state["armed"] = state.get("arm_result", True)
@@ -79,8 +91,15 @@ elif verb == ["pr", "auto-merge"]:
     if state["armed"]:
         state["merged"] = state.get("merge_on_arm", True)
 elif verb == ["pr", "merge"]:
+    if state.get("fail_merge"):
+        sys.stderr.write("jaah-forge: base branch policy prohibits the merge\n")
+        sys.exit(3)
     state["merged"] = True
 elif verb == ["pr", "view"]:
+    if args[2].isdigit():
+        state["views"] = state.get("views", 0) + 1
+        if state.get("merge_after_views") and state["views"] >= state["merge_after_views"]:
+            state["merged"] = True
     pr.update(state="merged" if state.get("merged") else "open",
               merge_state=state.get("merge_state", "clean"), checks=state.get("checks", "success"))
 json.dump(state, open(state_path, "w"))
@@ -177,15 +196,33 @@ class Bench(unittest.TestCase):
             json.dump(list(passes), fh)
 
     def run_agent(self) -> None:
+        """Run the connector's real entrypoint, `main()`, against this bench."""
         import main
 
-        agent = jaah_agent.connect(socket_path=self.daemon.path, events_path=self.events_path)
-        agent._sleep = lambda _s: None
-        with mock.patch("gitops.time.sleep", lambda _s: None):
-            try:
-                main.run(agent)
-            except main.Stop:
-                pass
+        env = {"JAAH_AGENT_SOCKET": self.daemon.path, "JAAH_AGENT_EVENTS": self.events_path}
+        # Every fake answer is resolved on the first poll, so the SDK's own ask loop never sleeps here.
+        with mock.patch.dict(os.environ, env), mock.patch("gitops.time.sleep", lambda _s: None):
+            self.assertEqual(main.main(), 0)
+        terminal = self.calls("task.settle") + self.calls("task.fail")
+        self.assertEqual(len(terminal), 1, f"exactly one terminal call, got {terminal}")
+
+    def forge_state_set(self, **values) -> None:
+        state = json.load(open(self.forge_state)) if os.path.exists(self.forge_state) else {}
+        with open(self.forge_state, "w") as fh:
+            json.dump({**state, **values}, fh)
+
+    def commit_on_origin_branch(self, files: dict) -> None:
+        """An earlier attempt's pushed commit on fleet/task-42."""
+        _git(self.worktree, "checkout", "-q", "-b", "fleet/task-42")
+        for path, body in files.items():
+            full = os.path.join(self.worktree, path)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w") as fh:
+                fh.write(body)
+        _git(self.worktree, "add", "-A")
+        _git(self.worktree, "commit", "-q", "-m", "wip from attempt 1")
+        _git(self.worktree, "push", "-q", "origin", "fleet/task-42")
+        _git(self.worktree, "checkout", "-q", "main")
 
     def calls(self, verb: str) -> list[dict]:
         return [args for v, args in self.daemon.calls if v == verb]

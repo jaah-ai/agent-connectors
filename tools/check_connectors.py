@@ -77,7 +77,7 @@ def validate(root: str) -> list[str]:
         parts = entry.replace("\\", "/").split("/")
         if entry.startswith("/") or ".." in parts or not entry.strip():
             errors.append(f"`entrypoint` must be a relative path inside the agent root, got {entry}")
-        elif not os.path.isfile(os.path.join(root, entry)):
+        elif not os.path.isfile(os.path.join(root, entry)) or not _inside(root, os.path.join(root, entry)):
             errors.append(f"`entrypoint` {entry} is not in the agent root")
     version = text("version")
     if version is not None and not SEMVER.match(version):
@@ -100,6 +100,12 @@ def validate(root: str) -> list[str]:
         errors.append("`runtime.install` must be true or false")
     errors += sdk_dependency_errors(root)
     return errors
+
+
+def _inside(root: str, path: str) -> bool:
+    """`path` resolves inside `root` (a symlink pointing out of the agent root does not count)."""
+    real_root = os.path.realpath(root)
+    return os.path.realpath(path).startswith(real_root + os.sep)
 
 
 def sdk_dependency_errors(root: str) -> list[str]:
@@ -145,6 +151,13 @@ def admits(spec: str, version: str) -> bool:
 def catalog_errors(root: str) -> list[str]:
     """What the catalog asks of a connector beyond a valid manifest (CONTRIBUTING.md, "Connector structure")."""
     out = []
+    try:
+        with open(os.path.join(root, MANIFEST), "rb") as fh:
+            name = tomllib.load(fh).get("agent", {}).get("name")
+    except (OSError, tomllib.TOMLDecodeError):
+        name = None
+    if name and name != os.path.basename(os.path.normpath(root)):
+        out.append(f"The connector directory must be named after `name`: connectors/{name}")
     if not os.path.isfile(os.path.join(root, "README.md")):
         out.append("A catalog connector needs a README.md")
     tests = os.path.join(root, "tests")

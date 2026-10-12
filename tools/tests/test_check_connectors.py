@@ -142,8 +142,25 @@ class CatalogTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("does not admit the SDK version under test, 0.2.0", out)
 
+    def test_catalog_directory_must_be_named_after_the_manifest(self):
+        agent = Agent(self).write("README.md", "# x\n").write("tests/test_x.py", "")
+        self.assertEqual(cc.catalog_errors(agent.root),
+                         ["The connector directory must be named after `name`: connectors/hello-agent"])
+
+    def test_an_entrypoint_symlinked_out_of_the_root_is_not_in_it(self):
+        agent = Agent(self, entrypoint='"main2.py"')
+        outside = tempfile.NamedTemporaryFile(suffix=".py", delete=False)
+        self.addCleanup(os.unlink, outside.name)
+        os.symlink(outside.name, os.path.join(agent.root, "main2.py"))
+        self.assertEqual(cc.validate(agent.root), ["`entrypoint` main2.py is not in the agent root"])
+
     def test_catalog_layout_needs_a_readme_and_tests(self):
         agent = Agent(self)
+        named = os.path.join(os.path.dirname(agent.root), "hello-agent")
+        shutil.rmtree(named, ignore_errors=True)
+        os.rename(agent.root, named)
+        agent.root = named
+        self.addCleanup(shutil.rmtree, named, True)
         self.assertEqual(cc.catalog_errors(agent.root), [
             "A catalog connector needs a README.md",
             "A catalog connector needs tests under tests/ (test_*.py or *.test.js)"])

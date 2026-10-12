@@ -2,7 +2,8 @@ name: ci
 
 on:
   push:
-    branches: [develop, main]
+    # review/** — a Jaah maintainer pushes a fork PR's head here so CI can use the deploy key (CONTRIBUTING §8)
+    branches: [develop, main, "review/**"]
   pull_request:
 
 permissions:
@@ -28,6 +29,7 @@ jobs:
           repository: jaah-ai/agent-sdk
           ref: ${{ env.SDK_REF }}
           ssh-key: ${{ secrets.AGENT_SDK_DEPLOY_KEY }}
+          persist-credentials: false   # the key must not stay on disk for PR code to read
           path: .sdk
       - uses: actions/setup-python@v5
         with:
@@ -70,6 +72,7 @@ jobs:
           repository: jaah-ai/agent-sdk
           ref: ${{ env.SDK_REF }}
           ssh-key: ${{ secrets.AGENT_SDK_DEPLOY_KEY }}
+          persist-credentials: false   # the key must not stay on disk for PR code to read
           path: .sdk
 
       - if: matrix.connector.language == 'python'

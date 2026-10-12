@@ -28,7 +28,12 @@ ul{padding-left:1.25rem}.empty{color:#59636e;font-style:italic}
 
 def main() -> int:
     agent = jaah_agent.connect()
-    run(agent)
+    try:
+        run(agent)
+    except jaah_agent.JaahUnavailable:
+        raise  # the call may have landed; the node names an unsettled exit if it did not
+    except Exception as exc:  # noqa: BLE001 — every path ends in exactly one terminal call
+        agent.fail(f"Report sample stopped before settling: {type(exc).__name__}: {exc}")
     return 0
 
 

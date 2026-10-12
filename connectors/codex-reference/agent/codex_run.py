@@ -14,6 +14,8 @@ import subprocess
 import tempfile
 from dataclasses import dataclass, field
 
+from gitops import safe_env
+
 DEFAULT_MODEL = "gpt-5-codex"
 # The env var a project (or a local dry run) may set to pick another Codex model.
 MODEL_ENV = "JAAH_CODEX_MODEL"
@@ -35,9 +37,9 @@ RESULT_SCHEMA = {
         "security_surfaces": {"type": "array", "items": {"type": "string"}},
     },
 }
-# Env the Codex child must NOT inherit: the SDK socket would let model-run shell commands settle or fail
-# the task behind the connector's back; the events file is the connector's own transcript.
-WITHHELD_ENV = ("JAAH_AGENT_SOCKET", "JAAH_AGENT_EVENTS")
+# Codex's own setting for what its model-run shell commands inherit: only the core variables (PATH, HOME…),
+# so a command the model runs never sees OPENAI_API_KEY or anything else in this process's environment.
+SHELL_POLICY = 'shell_environment_policy.inherit="core"'
 
 
 @dataclass
@@ -77,7 +79,7 @@ def model() -> str:
 
 
 def child_env(api_key: str, codex_home: str) -> dict:
-    env = {k: v for k, v in os.environ.items() if k not in WITHHELD_ENV}
+    env = safe_env()   # never the SDK socket: model-run commands must not settle or fail the task
     env["OPENAI_API_KEY"] = api_key
     env["CODEX_API_KEY"] = api_key   # `codex exec` reads this one for headless API-key auth
     env["CODEX_HOME"] = codex_home   # a private home: never the node's own Codex login (no Jaah Accounts)
@@ -86,7 +88,7 @@ def child_env(api_key: str, codex_home: str) -> dict:
 
 def command(prompt: str, worktree: str, schema_path: str, last_message_path: str) -> list[str]:
     return ["codex", "exec", "--json", "--ephemeral", "--ignore-user-config", "--skip-git-repo-check",
-            "--sandbox", "workspace-write", "--model", model(), "--cd", worktree,
+            "--sandbox", "workspace-write", "-c", SHELL_POLICY, "--model", model(), "--cd", worktree,
             "--output-schema", schema_path, "--output-last-message", last_message_path, prompt]
 
 
@@ -123,12 +125,14 @@ def run(prompt: str, worktree: str, api_key: str, *, timeout: float = CODEX_TIME
                                   env=child_env(api_key, home), stdin=subprocess.DEVNULL,
                                   capture_output=True, text=True, timeout=timeout)
             code, stdout, stderr = proc.returncode, proc.stdout, proc.stderr
+        except OSError as exc:   # no `codex` on PATH
+            code, stdout, stderr = 127, "", f"could not run codex: {exc}"
         except subprocess.TimeoutExpired as exc:
             code, stdout = 124, _text(exc.stdout)
             stderr = _text(exc.stderr) + f"\ncodex exec timed out after {timeout:g}s"
         usage, errors = parse_events(stdout, api_key)
         return CodexResult(exit_code=code, result=_read_result(last_path), usage=usage, errors=errors,
-                           stderr_tail=scrub(stderr[-2000:], api_key))
+                           stderr_tail=scrub(stderr, api_key)[-2000:])
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
@@ -147,4 +151,17 @@ def _read_result(path: str) -> dict | None:
         return None
     if not isinstance(data, dict) or data.get("status") not in ("done", "no_change", "blocked"):
         return None
-    return data
+    out = {k: str(data.get(k) or "") for k in ("status", "summary", "commit_title", "question", "blocker_kind")}
+    for k in ("options", "security_surfaces"):
+        out[k] = [str(x) for x in data.get(k) or [] if isinstance(x, (str, int, float))]
+    return out
+
+
+def scrub_result(result: dict, secret: str) -> dict:
+    """Codex's final message goes into commits, the PR and settle text: the key must not ride along."""
+    return {k: (scrub(v, secret) if isinstance(v, str) else [scrub(x, secret) for x in v])
+            for k, v in result.items()}
+
+
+def leaks(text: str, secret: str) -> bool:
+    return scrub(text, secret) != text

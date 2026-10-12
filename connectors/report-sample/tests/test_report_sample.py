@@ -95,6 +95,18 @@ class ReportSampleTest(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("NotARunner", proc.stderr)
 
+    def test_a_refused_upload_ends_in_one_named_fail(self):
+        from fake_daemon import err
+
+        original = self.handle
+        self.daemon.handler = lambda verb, args: (err("rejected", "HTTP 413 too large") if verb == "task.artifact"
+                                                  else original(verb, args))
+        with mock.patch.dict(os.environ, {"JAAH_AGENT_SOCKET": self.daemon.path, "JAAH_AGENT_EVENTS": self.events}):
+            self.assertEqual(main.main(), 0)
+        self.assertNotIn("task.settle", self.verbs())
+        [reason] = [a["reason"] for v, a in self.daemon.calls if v == "task.fail"]
+        self.assertIn("JaahRefused", reason)
+
     def test_main_entrypoint_runs_against_the_socket(self):
         with mock.patch.dict(os.environ, {"JAAH_AGENT_SOCKET": self.daemon.path, "JAAH_AGENT_EVENTS": self.events}):
             self.assertEqual(main.main(), 0)

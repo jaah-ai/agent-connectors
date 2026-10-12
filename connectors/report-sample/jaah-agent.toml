@@ -9,3 +9,6 @@ version      = "0.1.0"
 maintainer   = "@ruzhukov"
 personas     = ["researcher", "coder"]
 sdk          = ">=0.1,<0.2"
+
+[runtime]
+install      = false

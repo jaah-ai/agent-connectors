@@ -107,8 +107,9 @@ check each one.
    file, a commit, an artifact, a question or a settle. Pass a secret to a child process in its
    **environment**, never as an argument.
 6. **Report usage.** Every model call → `report_usage(model, input_tokens, output_tokens, …)`.
-7. **No reachable SDK socket for untrusted code.** If your connector runs commands a model chose, remove
-   `JAAH_AGENT_SOCKET` and `JAAH_AGENT_EVENTS` from that child's environment.
+7. **No reachable SDK socket for untrusted code.** Anything that can execute content a model chose or
+   wrote — the model's shell, the project's gate, git (whose hooks run repo content; turn them off) — runs
+   without `JAAH_AGENT_SOCKET` and `JAAH_AGENT_EVENTS` in its environment.
 8. **Declare your network reach** in the README ("Talks to"). Reach nothing else.
 
 ## 6. README
@@ -149,7 +150,10 @@ connectors in this repo are the template.
 3. **One connector per PR.** Open it against `develop`, using the PR template, and link the accepted JGP
    (`Implements JGP-<N>`) or the issue (`Fixes #<n>`). Bump the manifest `version`.
 4. **Green before review:** `tools/check_connectors.py`, your tests, and the coverage floor all pass in CI.
-   Reviewers do not start on a red PR.
+   Reviewers do not start on a red PR. **From a fork,** CI cannot fetch the private SDK (GitHub gives fork
+   PRs no secrets), so run the same commands locally (README, "Develop locally") and say so in the PR; a
+   Jaah maintainer then pushes your PR's head to `review/pr-<number>` in this repo, where CI runs with the
+   SDK, and links that run in the PR. CI is never switched to `pull_request_target` for this.
 5. Answer review comments with commits (no force-push once review has started, so the reviewer can see
    what changed); the reviewer resolves threads. A PR with no response from its author for **30 days** is
    closed (it can be reopened).
