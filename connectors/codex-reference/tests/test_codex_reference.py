@@ -55,6 +55,19 @@ class DeliveryTest(Bench):
         self.run_agent()
         self.assertEqual(self.calls("task.settle")[0]["terminal_type"], "no_pr", "stale work is not delivered")
 
+    def test_repository_hooks_never_run(self):
+        """A hook is repo content a model could plant: git must not run it (it would see no sandbox)."""
+        marker = os.path.join(self.tmp, "hook-ran")
+        for hook in ("pre-commit", "commit-msg", "pre-push", "post-checkout"):
+            path = os.path.join(self.worktree, ".git", "hooks", hook)
+            with open(path, "w") as fh:
+                fh.write(f"#!/bin/sh\nenv > {marker}\nexit 1\n")
+            os.chmod(path, 0o755)
+        self.set_plan({"files": HELLO, "result": result(), "usage": USAGE})
+        self.run_agent()
+        self.assertFalse(os.path.exists(marker), "no hook ran")
+        self.assertEqual(self.calls("task.settle")[0]["terminal_type"], "merged_pr")
+
     def test_codex_gets_the_key_in_its_own_env_only_and_never_the_sdk_socket(self):
         self.set_plan({"files": HELLO, "result": result(), "usage": USAGE})
         self.run_agent()
