@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.coverage
+.coverage.*
+htmlcov/
+node_modules/
+.sdk/

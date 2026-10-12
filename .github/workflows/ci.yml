@@ -1,0 +1,100 @@
+name: ci
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # The SDK the connectors are tested against. It is never a connector dependency (CONTRIBUTING.md §2):
+  # CI checks it out from the private repo with a read-only deploy key and puts it on the path.
+  SDK_REF: v0.1.0
+  COVERAGE_FLOOR: "80"
+
+jobs:
+  catalog:
+    name: manifests, tools and fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      connectors: ${{ steps.list.outputs.connectors }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: jaah-ai/agent-sdk
+          ref: ${{ env.SDK_REF }}
+          ssh-key: ${{ secrets.AGENT_SDK_DEPLOY_KEY }}
+          path: .sdk
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check every connector's manifest and layout
+        run: python tools/check_connectors.py --sdk-version "$(cat .sdk/VERSION)"
+      - name: Tool and fixture tests
+        run: python -m unittest discover -s tools/tests -v
+        env:
+          PYTHONPATH: .sdk/python:.sdk/python/tests
+      - id: list
+        name: List connectors
+        run: |
+          echo "connectors=$(python - <<'EOF'
+          import json, os, tomllib
+          rows = []
+          for name in sorted(os.listdir("connectors")):
+              with open(f"connectors/{name}/jaah-agent.toml", "rb") as fh:
+                  rows.append({"name": name, "language": tomllib.load(fh)["agent"]["language"]})
+          print(json.dumps(rows))
+          EOF
+          )" >> "$GITHUB_OUTPUT"
+
+  connector:
+    name: ${{ matrix.connector.name }}
+    needs: catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        connector: ${{ fromJSON(needs.catalog.outputs.connectors) }}
+    defaults:
+      run:
+        working-directory: connectors/${{ matrix.connector.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: jaah-ai/agent-sdk
+          ref: ${{ env.SDK_REF }}
+          ssh-key: ${{ secrets.AGENT_SDK_DEPLOY_KEY }}
+          path: .sdk
+
+      - if: matrix.connector.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - if: matrix.connector.language == 'python'
+        name: Tests against the fake node daemon, with the coverage floor
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.sdk/python:${{ github.workspace }}/.sdk/python/tests
+        run: |
+          python -m pip install --quiet coverage==7.6.10
+          if [ -f requirements.txt ]; then python -m pip install --quiet -r requirements.txt; fi
+          python -m coverage run --source=. --omit='tests/*' -m unittest discover -s tests -v
+          python -m coverage report --show-missing --fail-under="$COVERAGE_FLOOR"
+
+      - if: matrix.connector.language == 'typescript'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.18"
+      - if: matrix.connector.language == 'typescript'
+        name: Tests against the fake node daemon, with the coverage floor
+        run: |
+          if [ -f package-lock.json ]; then npm ci; fi
+          mkdir -p node_modules/@jaah
+          ln -sfn "$GITHUB_WORKSPACE/.sdk/ts" node_modules/@jaah/agent-sdk
+          node --test --experimental-test-coverage --test-coverage-lines="$COVERAGE_FLOOR" \
+            --test-coverage-exclude='tests/**' 'tests/*.test.js'

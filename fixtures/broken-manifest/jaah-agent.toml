@@ -1,0 +1,15 @@
+# TEST FIXTURE — deliberately invalid. Registering this sub-path must fail with exactly two errors:
+#   `language` must be python or typescript, got ruby
+#   `entrypoint` main.rb is not in the agent root   (Jaah words it against the commit it read)
+# Everything else here is valid, so those two are the only errors.
+[agent]
+name         = "broken-manifest"
+display_name = "Broken manifest (fixture)"
+description  = "Test fixture: an unsupported language and a missing entrypoint. Never a catalog connector."
+type         = "non_coding"
+language     = "ruby"
+entrypoint   = "main.rb"
+version      = "0.1.0"
+maintainer   = "@ruzhukov"
+personas     = ["coder"]
+sdk          = ">=0.1,<0.2"
