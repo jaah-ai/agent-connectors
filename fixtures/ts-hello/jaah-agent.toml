@@ -1,0 +1,13 @@
+# TEST FIXTURE — the SDK README's TypeScript hello agent, copied verbatim, so running it proves the README
+# (Jaah Task 5909, AC-3). Never a catalog connector.
+[agent]
+name         = "ts-hello"
+display_name = "TS hello (fixture)"
+description  = "Test fixture: the SDK README's TypeScript hello agent — asks when attended, notifies, reports usage, uploads a report and settles."
+type         = "non_coding"
+language     = "typescript"
+entrypoint   = "main.js"
+version      = "0.1.0"
+maintainer   = "@ruzhukov"
+personas     = ["coder", "researcher"]
+sdk          = ">=0.1,<0.2"
