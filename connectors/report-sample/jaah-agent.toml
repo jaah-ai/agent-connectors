@@ -1,0 +1,14 @@
+[agent]
+name         = "report-sample"
+display_name = "Report sample"
+description  = "A non-coding sample: reads the task and its input documents, writes an HTML brief, uploads it as the task's report and settles. No model, no code change."
+type         = "non_coding"
+language     = "python"
+entrypoint   = "main.py"
+version      = "0.1.0"
+maintainer   = "@ruzhukov"
+personas     = ["researcher", "coder"]
+sdk          = ">=0.1,<0.2"
+
+[runtime]
+install      = false

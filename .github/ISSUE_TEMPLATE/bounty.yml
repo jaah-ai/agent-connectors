@@ -1,0 +1,31 @@
+name: Bounty
+description: Fund a connector or a fix. A Jaah maintainer checks it, then labels it bounty + Open.
+title: "Bounty: <what>"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Payment is made by you, directly to the contributor, off-platform, within 30 days of merge.
+        Jaah does not hold or route money (GOVERNANCE.md §7).
+  - type: textarea
+    id: scope
+    attributes:
+      label: What to build
+      description: Link the accepted JGP if it is a new connector, and any acceptance beyond the review checklist.
+    validations: {required: true}
+  - type: input
+    id: amount
+    attributes:
+      label: Amount and currency
+    validations: {required: true}
+  - type: input
+    id: deadline
+    attributes:
+      label: Deadline
+    validations: {required: true}
+  - type: input
+    id: payment
+    attributes:
+      label: Payment method
+      placeholder: bank transfer against invoice
+    validations: {required: true}

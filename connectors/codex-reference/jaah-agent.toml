@@ -1,0 +1,14 @@
+[agent]
+name         = "codex-reference"
+display_name = "Codex (reference)"
+description  = "Drives the OpenAI Codex CLI headlessly as a coding agent: works the task in its worktree, asks when blocked, reports usage, and delivers a merged PR."
+type         = "coding"
+language     = "python"
+entrypoint   = "agent/main.py"
+version      = "0.1.0"
+maintainer   = "@ruzhukov"
+personas     = ["coder"]
+sdk          = ">=0.1,<0.2"
+
+[runtime]
+install      = false

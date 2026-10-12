@@ -1,0 +1,47 @@
+name: Connector proposal (JGP)
+description: Propose a new connector for the Jaah catalog. Required before a new connector's PR.
+title: "JGP-<N>: Add <X> connector"
+labels: ["JGP"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Once GitHub gives this issue a number, edit the title so `<N>` is that number.
+        Discussion runs 7 days; a Jaah maintainer then comments **Accepted** or **Declined** (GOVERNANCE.md §2).
+  - type: textarea
+    id: what
+    attributes:
+      label: What the connector does
+      description: The agent or tool it drives, and the work it does on a task.
+    validations: {required: true}
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options: [coding, non_coding, cli_wrapper]
+    validations: {required: true}
+  - type: input
+    id: personas
+    attributes:
+      label: Personas
+      placeholder: coder, researcher
+    validations: {required: true}
+  - type: textarea
+    id: needs
+    attributes:
+      label: What it needs
+      description: Binaries on the node, credentials on the task's roster (and their type), and every host it talks to.
+    validations: {required: true}
+  - type: input
+    id: maintainer
+    attributes:
+      label: Maintainer
+      description: The GitHub handle accountable for the connector (GOVERNANCE.md §5).
+      placeholder: "@your-handle"
+    validations: {required: true}
+  - type: dropdown
+    id: tier
+    attributes:
+      label: Integration tier
+      options: [DIY, Bounty, Sponsorship]
+    validations: {required: true}
