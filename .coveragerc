@@ -1,0 +1,19 @@
+# The coverage floor CI holds each connector to (CONTRIBUTING.md §7): its own code, never its tests or the SDK
+# bundle the Agent SDK's examples/vendor.py generated beside it. Run from a connector's folder:
+#   python -m coverage run --rcfile=../../.coveragerc -m unittest discover -s tests && python -m coverage report --rcfile=../../.coveragerc
+[run]
+source = .
+omit =
+    tests/*
+    */tests/*
+    */jaah_agent/*
+    */acp/*
+    */pydantic/*
+    */pydantic_core/*
+    */annotated_types/*
+    */typing_inspection/*
+    */typing_extensions.py
+
+[report]
+fail_under = 80
+show_missing = true

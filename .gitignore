@@ -1,0 +1,21 @@
+__pycache__/
+*.pyc
+.coverage
+.coverage.*
+htmlcov/
+node_modules/
+.venv/
+# What the Agent SDK's examples/vendor.py writes beside each agent's script (the SDK copy, requirements.txt, the bundled
+# agent.mjs): generated into the published tree, never committed in the source. The rest is what `vendor.py --install`
+# (or the node) installs from it.
+jaah_agent/
+requirements.txt
+*.mjs
+acp/
+annotated_types/
+pydantic/
+pydantic_core/
+typing_inspection/
+typing_extensions.py
+*.dist-info/
+bin/

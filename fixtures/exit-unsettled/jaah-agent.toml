@@ -1,0 +1,13 @@
+# TEST FIXTURE — a valid agent that, on its first prompt, logs one line and exits 1 without settling. Running it on
+# a task must end that task with Jaah's own named failure for an agent that exited unsettled.
+[agent]
+manifest = 2
+name         = "exit-unsettled"
+display_name = "Exit unsettled (fixture)"
+description  = "Test fixture: logs one line and exits 1 without settling. Never a catalog connector."
+type         = "non_coding"
+language     = "python"
+command      = ["python3", "agent.py"]
+version      = "2.0.0"
+maintainer   = "@jaah-ai"
+personas     = ["coder"]

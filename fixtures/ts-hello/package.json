@@ -1,0 +1,14 @@
+{
+  "name": "ts-hello",
+  "version": "2.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^1.9.0",
+    "zod": "^4.6.7"
+  }
+}

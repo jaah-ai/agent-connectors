@@ -1,0 +1,14 @@
+# TEST FIXTURE — a Python hello agent plus two acceptance probes: it says back the exact answer it was given, and
+# says every secret of a credential named `k10-planted-*`, so the session transcript proves masking. Never a catalog
+# connector.
+[agent]
+manifest = 2
+name         = "py-hello"
+display_name = "Py hello (fixture)"
+description  = "Test fixture: a Python hello agent, plus an answer echo and a planted-secret line that must arrive redacted."
+type         = "non_coding"
+language     = "python"
+command      = ["python3", "agent.py"]
+version      = "2.0.0"
+maintainer   = "@jaah-ai"
+personas     = ["coder", "researcher"]

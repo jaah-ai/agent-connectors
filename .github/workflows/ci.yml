@@ -1,0 +1,90 @@
+name: ci
+
+# Every agent folder here carries the SDK it runs on (generated into each release) and lists its dependencies, so CI
+# installs them into the folder exactly as a node does and tests each agent there: no SDK checkout, no secret — a
+# fork's pull request runs exactly what a maintainer's does.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  COVERAGE_FLOOR: "80"
+
+jobs:
+  catalog:
+    name: manifests, tools and fixtures
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      connectors: ${{ steps.list.outputs.connectors }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
+      - name: Install each agent's dependencies into its folder, as the node does
+        run: |
+          find . -name requirements.txt -not -path '*/node_modules/*' -print0 | while IFS= read -r -d '' req; do
+            python -m pip install --quiet --disable-pip-version-check --no-input --require-hashes \
+              --only-binary=:all: --target "$(dirname "$req")" -r "$req"
+          done
+          find . -name package-lock.json -not -path '*/node_modules/*' -print0 | while IFS= read -r -d '' lock; do
+            npm ci --prefix "$(dirname "$lock")" --omit=dev --ignore-scripts --no-audit --no-fund --loglevel=error
+          done
+      - name: Check every connector's manifest, layout and bundle
+        run: python tools/check_connectors.py --bundled
+      - name: Check the runnable fixtures' bundles
+        run: python tools/check_connectors.py --bundled fixtures/exit-unsettled fixtures/py-hello fixtures/ts-hello
+      - name: Tool and fixture tests
+        run: python -m unittest discover -s tools/tests -v
+      - id: list
+        name: List connectors
+        run: |
+          echo "connectors=$(python - <<'EOF'
+          import json, os
+          print(json.dumps(sorted(d for d in os.listdir("connectors") if os.path.isdir(f"connectors/{d}"))))
+          EOF
+          )" >> "$GITHUB_OUTPUT"
+
+  connector:
+    name: ${{ matrix.connector }}
+    needs: catalog
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        connector: ${{ fromJSON(needs.catalog.outputs.connectors) }}
+    defaults:
+      run:
+        working-directory: connectors/${{ matrix.connector }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install each agent's dependencies into its folder, as the node does
+        run: |
+          find . -name requirements.txt -not -path '*/node_modules/*' -print0 | while IFS= read -r -d '' req; do
+            python -m pip install --quiet --disable-pip-version-check --no-input --require-hashes \
+              --only-binary=:all: --target "$(dirname "$req")" -r "$req"
+          done
+          find . -name package-lock.json -not -path '*/node_modules/*' -print0 | while IFS= read -r -d '' lock; do
+            npm ci --prefix "$(dirname "$lock")" --omit=dev --ignore-scripts --no-audit --no-fund --loglevel=error
+          done
+      - name: Tests against the fake node, under the SDK the folder carries, with the coverage floor
+        run: |
+          python -m pip install --quiet coverage==7.6.10
+          python -m coverage run --rcfile=../../.coveragerc -m unittest discover -s tests -v
+          python -m coverage report --rcfile=../../.coveragerc --fail-under="$COVERAGE_FLOOR"

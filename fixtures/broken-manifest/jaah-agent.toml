@@ -1,0 +1,16 @@
+# TEST FIXTURE — deliberately invalid. Registering this sub-path must fail with exactly two errors, one
+# sentence per bad field:
+#   `language` must be python or typescript, got ruby
+#   `command` must be a list of words such as ["python3", "agent.py"], got "ruby main.rb"
+# Everything else here is valid, so those two are the only errors.
+[agent]
+manifest = 2
+name         = "broken-manifest"
+display_name = "Broken manifest (fixture)"
+description  = "Test fixture: an unsupported language and a command that is not a list. Never a catalog connector."
+type         = "non_coding"
+language     = "ruby"
+command      = "ruby main.rb"
+version      = "2.0.0"
+maintainer   = "@jaah-ai"
+personas     = ["coder"]
